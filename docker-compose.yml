@@ -1,0 +1,44 @@
+# version: '3'
+
+# services:
+#   magicmirror:
+#     container_name: mymagicmirror
+
+#     environment: 
+#       - 'TZ=America/Bahia'
+
+#     image: karsten13/magicmirror:latest
+#     ports:
+#       - "8080:8080"
+#     volumes:
+#       - ./magic/config:/opt/magic_mirror/config
+#       - ./magic/modules:/opt/magic_mirror/modules
+#       - ./magic/css:/opt/magic_mirror/css
+   
+#     restart: unless-stopped
+    
+#     command: 
+#       - npm
+#       - run
+#       - server
+
+version: '3.9'
+
+services: 
+
+  node-red:
+      container_name: MQTT
+      environment: 
+        -  'TZ=America/Bahia'
+        -  'NODE_RED_CREDENTIAL_SECRET=1013'
+
+      image: nodered/node-red
+
+      ports: 
+        - '1880:1880'
+        - '1883:1883'
+
+      volumes: 
+        - './docker/node-red-pasta:/data'
+        
+      restart: unless-stopped

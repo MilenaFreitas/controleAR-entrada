@@ -35,11 +35,11 @@ WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensor(&oneWire);	
-char topic1[]= "status2";          // topico MQTT
-char topic3[]= "memoria2";  
-char topic4[]= "tempideal2";
-char topic5[]= "permissao2";
-char topic6[]= "permissaoResposta2";
+char topic1[]= "status3";          // topico MQTT
+char topic3[]= "memoria3";  
+char topic4[]= "tempideal3";
+char topic5[]= "permissao3";
+char topic6[]= "permissaoResposta3";
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
 IPAddress ip=WiFi.localIP();
@@ -89,7 +89,7 @@ void dadosEEPROM(){
 void callback(char* topicc, byte* payload, unsigned int length){
   //{"agenda":{"diaSemana":2,"horaLiga":7,"horaDesliga":19},"tempIdeal":24}
   String topicStr = topicc;
-  if(topicStr=="memoria"){ 
+  if(topicStr=="memoria3"){ 
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
     Serial.print(": ");
@@ -127,7 +127,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
       Serial.println();
       tIdeal = atoi(msg4.c_str());
     }
-  }else if(topicStr = "permissaoResposta"){
+  }else if(topicStr = "permissaoResposta3"){
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
     Serial.print(": ");
@@ -252,7 +252,7 @@ void payloadMQTT(){
   datahora();
   time_t tt=time(NULL);
   StaticJsonDocument<256> doc;
-  doc["local"] = "AR-redacao-reuniao";
+  doc["local"] = "AR-redacao-entrada";
   doc["ip"] = ip.toString();
   doc["mac"] = mac;
   doc["hora"]=tt;
@@ -430,5 +430,5 @@ void loop(){
   delay(1000);
   }
 
-//mac 1 biitF4A6F9A3C9C8 redação reuniao
-//mac 2 biitD8B3F9A3C9C8 redação entrada
+//mac 1 biitF4A6F9A3C9C8 redação entrada
+//mac 2 biitD8B3F9A3C9C8 redação reuniao

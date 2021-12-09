@@ -20,9 +20,11 @@
 #define DEVICE_TYPE "AR-redacao-entrada"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
-#define PUBLISH_INTERVAL 1000*60*1//intervalo de 5 min para publicar temperatura
-#define ONE_WIRE_BUS 32 //pino no esp
+#define PUBLISH_INTERVAL 2000//intervalo de 5 min para publicar temperatura
+OneWire pino(32);
 
+DallasTemperature barramento(&pino);
+DeviceAddress sensor;
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip=(uint16_t)(chipid >> 32);
 char DEVICE_ID[23];
@@ -33,8 +35,6 @@ PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensor(&oneWire);	
 char topic1[]= "status3";          // topico MQTT
 char topic3[]= "memoria3";  
 char topic4[]= "tempideal3";
@@ -43,22 +43,20 @@ char topic6[]= "permissaoResposta3";
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
 IPAddress ip=WiFi.localIP();
-unsigned long tempo=1000*60*15; // verifica movimento a cada 15 min
-const long intervalo=60000; //se tiver sem rede espera 1 min para tentar de novo
+unsigned long tempo=1000*60*10; // verifica movimento a cada 15 min
+const long intervalo=1000*60*1; //se tiver sem rede espera 1 min para tentar de novo
 unsigned long ultimoGatilho = millis()+tempo;
 unsigned long previousMillis=0;
 unsigned long previousMillis1=0;
 
-int tempAtual=0;
-int tempAntiga=0;
-bool tasksAtivo = true;
+float tempAtual=0;
 struct tm data; //armazena data 
 char data_formatada[64];
 char hora_formatada[64];
 int movimento=0;
 int rede;
 String comando;
-
+int cont=0;
 int vez=0;
 int vez2=0;
 std::string msg;
@@ -70,6 +68,7 @@ int tIdeal;
 int data_semana;
 int Hliga;
 int Hdes;
+int contTemp=0;
 //=============================================================
 const int pirPin1=33; 
 const int con=25;  
@@ -79,12 +78,15 @@ void dadosEEPROM(){
   //DEFINE OS DADOS EMERGENCIAIS DA EPROOM 
   if(EEPROM.read(0) != tIdeal){
     EEPROM.write(0, tIdeal);  //escreve tempIdeal no dress=0 vindo do mqtt
-    Serial.println("ESCREVEU NA EEPROM");
-  } else if(EEPROM.read(1) != Hdes){
+    Serial.println(tIdeal);
+  } else if(EEPROM.read(2) != Hdes){
     EEPROM.write(1, Hdes);
-  } else if(EEPROM.read(2) != Hliga){
+    Serial.println(Hdes);
+  } else if(EEPROM.read(4) != Hliga){
     EEPROM.write(2, Hliga);
+    Serial.println(Hliga);
   }
+  Serial.println("ESCREVEU NA EEPROM");
 }
 void callback(char* topicc, byte* payload, unsigned int length){
   //{"agenda":{"diaSemana":2,"horaLiga":7,"horaDesliga":19},"tempIdeal":24}
@@ -126,6 +128,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
       Serial.print(msg4.c_str());
       Serial.println();
       tIdeal = atoi(msg4.c_str());
+      dadosEEPROM(); //escreve na eeprom o valor
     }
   }else if(topicStr = "permissaoResposta3"){
     Serial.println("ENTROU NO CALLBACK");
@@ -177,7 +180,6 @@ void datahora(){
   }	
 }
 void iniciaWifi(){
-  int cont=0;
   WiFi.begin(WIFI_NOME, WIFI_SENHA); 
   while (WiFi.status()!= WL_CONNECTED){//incia wifi ate q funcione
     Serial.print (".");
@@ -189,8 +191,7 @@ void iniciaWifi(){
       Serial.println(rede);
       break;
     }
-  }  
-  if(WiFi.status() == WL_CONNECTED){
+  } if(WiFi.status() == WL_CONNECTED){
     rede=1;
     if (!client.connected()){  //aqui é while, mudei pra teste
       conectaMQTT();
@@ -212,7 +213,7 @@ void redee(){
 }
 void tentaReconexao(){ //roda assincrona no processador 0
   unsigned long currentMillis = millis();
-  if (currentMillis-previousMillis<= intervalo) { //a cada 5min tenta reconectar
+  if (currentMillis-previousMillis<= (1000*60*5)) { //a cada 5min tenta reconectar
     Serial.print("*************************");
     Serial.print("TENTA RECONEXAO");
     Serial.println("***********************");
@@ -224,29 +225,25 @@ void tentaReconexao(){ //roda assincrona no processador 0
 void sensorTemp(void *pvParameters){
   Serial.println ("sensorTemp inicio do LOOP");
   while (1) {//busca temp enquanto estiver ligado
-    sensor.requestTemperatures(); 
-    tempAtual = sensor.getTempCByIndex(0);
-    tasksAtivo=false;
-    vTaskSuspend (NULL);
-    vTaskDelay(pdMS_TO_TICKS(60000));
+     barramento.requestTemperatures(); 
+    float temperatura = barramento.getTempC(sensor);
+    Serial.print("a Temperatura é: ");
+    Serial.println(temperatura);
+    if(temperatura>0 && temperatura<50){
+      tempAtual=temperatura;
+      Serial.println(tempAtual);
+      contTemp=0;
+    } else if(temperatura<0 && temperatura>50){
+      contTemp++;
+      if(contTemp==5){
+        tempAtual=temperatura;
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(30000));
   }
 }
 void IRAM_ATTR mudaStatusPir(){
   ultimoGatilho = millis()+tempo;
-  movimento=1;
-}
-void pegaTemp() {
-      if (retornoTemp != NULL) {
-    xTaskResumeFromISR (retornoTemp);
-  }
-}
-void publish(){
- if(tempAtual>50){
-    tempAtual=tempAntiga;
-  }else if (tempAntiga != tempAtual){
-    // nova temperatura
-    tempAntiga=tempAtual;
-  }  
 }
 void payloadMQTT(){ 
   datahora();
@@ -263,7 +260,6 @@ void payloadMQTT(){
   char buffer1[256];
   serializeJson(doc, buffer1);
   client.publish(topic1, buffer1);
-  movimento=0;
 }
 void arLiga(){
   String hora;
@@ -298,6 +294,8 @@ void perguntaMQTT(){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
+      digitalWrite(con, 0);
+      digitalWrite(eva, 0);
       if(vez==1){
         Serial.println("entrou para a parte que pergunta ao MQTT");
         StaticJsonDocument<256> doc;
@@ -354,7 +352,7 @@ void verificaDia(void *pvParameters){
       //se fora do dia
       perguntaMQTT();
     }
-    vTaskDelay(60000);
+    vTaskDelay(pdMS_TO_TICKS(30000));
   }
 }
 void PinConfig () {
@@ -363,8 +361,6 @@ void PinConfig () {
   pinMode(eva, OUTPUT);
   pinMode(con, OUTPUT);
 }
-Ticker tickerpin(publish, PUBLISH_INTERVAL);
-Ticker tempTicker(pegaTemp, 5000);
 void setup(){
   Serial.begin (115200);
   iniciaWifi();
@@ -383,37 +379,38 @@ void setup(){
   }
   redee();  //define as variaveis
   PinConfig();
-  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 1000, NULL, 1, &retornoTemp, 0);
+  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore (verificaDia, "arliga", 10000, NULL, 1, NULL, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
-  tickerpin.start();
-  tempTicker.start();
   datahora();
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
-  sensor.begin();	// Start up the library
-  EEPROM.begin(EEPROM_SIZE);
+  barramento.begin();
+  barramento.getAddress(sensor, 0);  // Start up the library
 }
 void loop(){
   datahora();
   server.handleClient();
-  reconectaMQTT();
-  int week = data.tm_wday; //devolve em numero
   if(WL_DISCONNECTED || WL_CONNECTION_LOST){
     rede=0;
-  }
-  else if(rede==0){
+  }else if(rede==0){
+    Serial.println(rede);
     tentaReconexao();
   }
+  reconectaMQTT();
+  int week = data.tm_wday; //devolve em numero
   unsigned long currentMillis1 = millis();
   if ((currentMillis1-previousMillis1)>= intervalo){
     Serial.println("entro no tempo do millis do payload");
     payloadMQTT();
     previousMillis1=currentMillis1;
-  }else if(ultimoGatilho>millis() && movimento==1){
-    //tem movimento na sala
-    payloadMQTT();
-  } else if(week != data_semana && vez2==0){
+  }
+   if(ultimoGatilho>millis()){
+    movimento=1;
+  } else if(ultimoGatilho<millis()){
+    movimento=0;
+  } 
+   if(week != data_semana && vez2==0){
     StaticJsonDocument<256> doc5;
     doc5["local"] = "AR-redacao-entrada";
     doc5["mac"] =  mac;
@@ -421,14 +418,17 @@ void loop(){
     char buffer[256];
     serializeJson(doc5, buffer);
     client.publish (topic4, buffer);
-    dadosEEPROM(); //escreve na eeprom o valor
     Serial.println("mandou mqtt");
     vez2++;
   }
-  tempTicker.update();
-  tickerpin.update();
-  delay(1000);
+  while (WiFi.status()!= WL_CONNECTED){
+    Serial.println("NAO TEM NEEET");
+    redee();
+    if(ultimoGatilho>millis()){
+      arLiga();
+    }
   }
-
+  delay(1000);
+}
 //mac 1 biitF4A6F9A3C9C8 redação entrada
 //mac 2 biitD8B3F9A3C9C8 redação reuniao

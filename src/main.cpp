@@ -35,7 +35,8 @@ PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
-char topic1[]= "status3";          // topico MQTT
+char topic1[]= "status3";   
+char topic2[]= "reset3";        // topico MQTT
 char topic3[]= "memoria3";  
 char topic4[]= "tempideal3";
 char topic5[]= "permissao3";
@@ -91,8 +92,8 @@ void dadosEEPROM(){
 void callback(char* topicc, byte* payload, unsigned int length){
   //{"agenda":{"diaSemana":2,"horaLiga":7,"horaDesliga":19},"tempIdeal":24}
   String topicStr = topicc;
-  if(topicStr=="memoria2"){ 
-    Serial.println("ENTROU NO CALLBACK");
+  if(topicStr=="memoria3"){ 
+    Serial.println("ENTROU NO CALLBACK1");
     Serial.print(topicc);
     Serial.print(": ");
     for (int i = 0; i < length; i++){
@@ -130,8 +131,9 @@ void callback(char* topicc, byte* payload, unsigned int length){
       tIdeal = atoi(msg4.c_str());
       dadosEEPROM(); //escreve na eeprom o valor
     }
-  }else if(topicStr = "permissaoResposta2"){
-    Serial.println("ENTROU NO CALLBACK");
+    topicStr="";
+  }else if(topicStr="permissaoResposta3"){
+    Serial.println("ENTROU NO CALLBACK2");
     Serial.print(topicc);
     Serial.print(": ");
     for (int i = 0; i < length; i++){
@@ -139,6 +141,20 @@ void callback(char* topicc, byte* payload, unsigned int length){
       comando=(char)payload[i];
     }
     Serial.println();
+    topicStr="";
+  }
+    if(topicc="reset3"){
+    Serial.println("entrou no: ");
+    Serial.println(topicc);
+    String reset;
+    for (int i = 0; i < length; i++){
+      reset=(char)payload[i];
+    }
+    if(reset=="1"){
+      Serial.println("RESERTAAAAAAAAAA");
+      ESP.restart();
+    }
+    topicStr="";
   }
 }
 void conectaMQTT(){
@@ -149,6 +165,7 @@ void conectaMQTT(){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word"); 
       client.subscribe (topic1);
+      client.subscribe (topic2);
       client.subscribe (topic3);
       client.subscribe (topic4);
       client.subscribe (topic5);
@@ -418,7 +435,7 @@ void loop(){
   if(ultimoGatilho<millis()){
     movimento=0;
   } 
-  if(week != data_semana && vez2==0){
+  if(week != data_semana){
     StaticJsonDocument<256> doc5;
     doc5["local"] = "AR-redacao-entrada";
     doc5["mac"] =  mac;

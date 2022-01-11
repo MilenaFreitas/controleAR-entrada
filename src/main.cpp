@@ -357,8 +357,8 @@ void payloadMQTT(){
   doc["hora"]=tt;
   doc["temperatura"]=tempAtual;
   doc["movimento"]=movimento; 
-  doc["evaporadora"]=(digitalRead(eva));
-  doc["condensadora"]=(digitalRead(con));
+  doc["evaporadora"]=!(digitalRead(eva));
+  doc["condensadora"]=!(digitalRead(con));
   char buffer1[256];
   serializeJson(doc, buffer1);
   client.publish(topic1, buffer1);
@@ -367,26 +367,26 @@ void arLiga(){
   String hora;
   hora= data.tm_hour;
   //liga ar
-  digitalWrite(eva, 1);
-  digitalWrite(ledEva, 1);
+  digitalWrite(eva, 0);
+  digitalWrite(ledEva, 0);
   Serial.println(tempAtual);
   Serial.println(tIdeal);
   if(tempAtual>=(tIdeal+1)){ //quente
-    if(digitalRead(eva)==1){
-      digitalWrite(con, 1);
+    if(digitalRead(eva)==0){
+      digitalWrite(con, 0);
       digitalWrite(ledCon, 1);
       Serial.println("condensadora ligada");
     } else {
-      digitalWrite(eva, 1);
+      digitalWrite(eva, 0);
       digitalWrite(ledEva, 1);
-      digitalWrite(con, 1);
+      digitalWrite(con, 0);
       digitalWrite(ledCon, 1);
       Serial.println("condensadora ligada");
     }		
   } else if(tempAtual<=(tIdeal-1)){ //frio
-    digitalWrite(con, 0);
+    digitalWrite(con, 1);
     digitalWrite(ledCon, 0);
-    digitalWrite(eva, 1);
+    digitalWrite(eva, 0);
     digitalWrite(ledEva, 1);
     Serial.println("condensadora desligada");	
 
@@ -402,9 +402,9 @@ void perguntaMQTT(){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
-      digitalWrite(con, 0);
+      digitalWrite(con, 1);
       digitalWrite(ledCon, 0);
-      digitalWrite(eva, 0);
+      digitalWrite(eva, 1);
       digitalWrite(ledEva, 0);
       if(vez==1){
         Serial.println("entrou para a parte que pergunta ao MQTT");
@@ -429,9 +429,9 @@ void perguntaMQTT(){
           }
         } 
       } else if(comando=="0"){
-        digitalWrite(con, 0);
+        digitalWrite(con, 1);
         digitalWrite(ledCon, 0);
-        digitalWrite(eva, 0);
+        digitalWrite(eva, 1);
         digitalWrite(ledEva, 0);
         Serial.println("nao liga o ar pelo MQTT");
         Serial.println(comando);
@@ -455,24 +455,24 @@ void verificaDia(void *pvParameters){
           Serial.println("estou dentro do horario");
         } else if(ultimoGatilho<millis()){
           //não tem movimento
-          digitalWrite(con, 0);
+          digitalWrite(con, 1);
           digitalWrite(ledCon, 0);
-          digitalWrite(eva, 0);
+          digitalWrite(eva, 1);
           digitalWrite(ledEva, 0);
         }
       } else {
         //se fora do horario
-        digitalWrite(con, 0);
+        digitalWrite(con, 1);
         digitalWrite(ledCon, 0);
-        digitalWrite(eva, 0);
-        digitalWrite(ledEva, 0);  
+        digitalWrite(eva, 1);
+        digitalWrite(ledEva, 0);
         perguntaMQTT();
       }
     } else{
       //se fora do dia
-      digitalWrite(con, 0);
+      digitalWrite(con, 1);
       digitalWrite(ledCon, 0);
-      digitalWrite(eva, 0);
+      digitalWrite(eva, 1);
       digitalWrite(ledEva, 0);
       perguntaMQTT();
     }

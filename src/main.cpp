@@ -23,6 +23,7 @@
 #define PUBLISH_INTERVAL 2000//intervalo de 5 min para publicar temperatura
 OneWire pino(32);
 
+const char* host = "AR-redacao-entrada";
 DallasTemperature barramento(&pino);
 DeviceAddress sensor;
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
@@ -74,7 +75,86 @@ int contTemp=0;
 const int pirPin1=33; 
 const int con=25;  
 const int eva=26;
+const int ledCon=22;
+const int ledEva=23;
 ////////////////////////////////////////////////////////////////
+const char* loginIndex = 
+ "<form name='loginForm'>"
+    "<table width='40%' bgcolor='FFF2A6' align='center'>"
+        "<tr>"
+            "<td colspan=2>"
+                "<center><font size=4><b>Ola! Indentifique-se!</b></font></center>"
+                "<br>"
+            "</td>"
+            "<br>"
+            "<br>"
+        "</tr>"
+        "<td>Login:</td>"
+        "<td><input type='text' size=25 name='userid'><br></td>"
+        "</tr>"
+        "<br>"
+        "<br>"
+        "<tr>"
+            "<td>Senha:</td>"
+            "<td><input type='Password' size=25 name='pwd'><br></td>"
+            "<br>"
+            "<br>"
+        "</tr>"
+        "<tr>"
+            "<td><input type='submit' onclick='check(this.form)' value='Identificar'></td>"
+        "</tr>"
+    "</table>"
+"</form>"
+"<script>"
+    "function check(form)"
+    "{"
+    "if(form.userid.value=='admin' && form.pwd.value=='zaq1xsw2')"
+    "{"
+    "window.open('/serverIndex')"
+    "}"
+    "else"
+    "{"
+    " alert('Login ou senha invalidos')"
+    "}"
+    "}"
+"</script>";
+  
+const char* serverIndex = 
+"<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
+"<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
+   "<input type='file' name='update'>"
+        "<input type='submit' value='Update'>"
+    "</form>"
+ "<div id='prg'>Progresso: 0%</div>"
+ "<script>"
+  "$('form').submit(function(e){"
+  "e.preventDefault();"
+  "var form = $('#upload_form')[0];"
+  "var data = new FormData(form);"
+  " $.ajax({"
+  "url: '/update',"
+  "type: 'POST',"
+  "data: data,"
+  "contentType: false,"
+  "processData:false,"
+  "xhr: function() {"
+  "var xhr = new window.XMLHttpRequest();"
+  "xhr.upload.addEventListener('progress', function(evt) {"
+  "if (evt.lengthComputable) {"
+  "var per = evt.loaded / evt.total;"
+  "$('#prg').html('Progresso: ' + Math.round(per*100) + '%');"
+  "}"
+  "}, false);"
+  "return xhr;"
+  "},"
+  "success:function(d, s) {"
+  "console.log('Sucesso!')"
+ "},"
+ "error: function (a, b, c) {"
+ "}"
+ "});"
+ "});"
+ "</script>";
 void dadosEEPROM(){
   //DEFINE OS DADOS EMERGENCIAIS DA EPROOM 
   if(EEPROM.read(0) != tIdeal){
@@ -143,7 +223,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
     Serial.println();
     topicStr="";
   }
-    if(topicc="reset3"){
+    if(topicStr="reset3"){
     Serial.println("entrou no: ");
     Serial.println(topicc);
     String reset;
@@ -277,8 +357,8 @@ void payloadMQTT(){
   doc["hora"]=tt;
   doc["temperatura"]=tempAtual;
   doc["movimento"]=movimento; 
-  doc["evaporadora"]=!(digitalRead(eva));
-  doc["condensadora"]=!(digitalRead(con));
+  doc["evaporadora"]=(digitalRead(eva));
+  doc["condensadora"]=(digitalRead(con));
   char buffer1[256];
   serializeJson(doc, buffer1);
   client.publish(topic1, buffer1);
@@ -287,21 +367,27 @@ void arLiga(){
   String hora;
   hora= data.tm_hour;
   //liga ar
-  digitalWrite(eva, 0);
+  digitalWrite(eva, 1);
+  digitalWrite(ledEva, 1);
   Serial.println(tempAtual);
   Serial.println(tIdeal);
   if(tempAtual>=(tIdeal+1)){ //quente
-    if(digitalRead(eva)==0){
-      digitalWrite(con, 0);
+    if(digitalRead(eva)==1){
+      digitalWrite(con, 1);
+      digitalWrite(ledCon, 1);
       Serial.println("condensadora ligada");
     } else {
-      digitalWrite(con, 0);
-      digitalWrite(eva, 0);
+      digitalWrite(eva, 1);
+      digitalWrite(ledEva, 1);
+      digitalWrite(con, 1);
+      digitalWrite(ledCon, 1);
       Serial.println("condensadora ligada");
     }		
   } else if(tempAtual<=(tIdeal-1)){ //frio
-    digitalWrite(con, 1);
-    digitalWrite(eva, 0);
+    digitalWrite(con, 0);
+    digitalWrite(ledCon, 0);
+    digitalWrite(eva, 1);
+    digitalWrite(ledEva, 1);
     Serial.println("condensadora desligada");	
 
   } else if(tempAtual==tIdeal){
@@ -316,8 +402,10 @@ void perguntaMQTT(){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
-      digitalWrite(con, 1);
-      digitalWrite(eva, 1);
+      digitalWrite(con, 0);
+      digitalWrite(ledCon, 0);
+      digitalWrite(eva, 0);
+      digitalWrite(ledEva, 0);
       if(vez==1){
         Serial.println("entrou para a parte que pergunta ao MQTT");
         StaticJsonDocument<256> doc;
@@ -341,8 +429,10 @@ void perguntaMQTT(){
           }
         } 
       } else if(comando=="0"){
-        digitalWrite(con, 1);
-        digitalWrite(eva, 1);
+        digitalWrite(con, 0);
+        digitalWrite(ledCon, 0);
+        digitalWrite(eva, 0);
+        digitalWrite(ledEva, 0);
         Serial.println("nao liga o ar pelo MQTT");
         Serial.println(comando);
       }
@@ -365,19 +455,25 @@ void verificaDia(void *pvParameters){
           Serial.println("estou dentro do horario");
         } else if(ultimoGatilho<millis()){
           //não tem movimento
-          digitalWrite(con, 1);
-          digitalWrite(eva, 1);
+          digitalWrite(con, 0);
+          digitalWrite(ledCon, 0);
+          digitalWrite(eva, 0);
+          digitalWrite(ledEva, 0);
         }
       } else {
         //se fora do horario
-        digitalWrite(con, 1);
-        digitalWrite(eva, 1);
+        digitalWrite(con, 0);
+        digitalWrite(ledCon, 0);
+        digitalWrite(eva, 0);
+        digitalWrite(ledEva, 0);  
         perguntaMQTT();
       }
     } else{
       //se fora do dia
-      digitalWrite(con, 1);
-      digitalWrite(eva, 1);
+      digitalWrite(con, 0);
+      digitalWrite(ledCon, 0);
+      digitalWrite(eva, 0);
+      digitalWrite(ledEva, 0);
       perguntaMQTT();
     }
     vTaskDelay(pdMS_TO_TICKS(30000));
@@ -388,13 +484,65 @@ void PinConfig(){
 	pinMode(pirPin1, INPUT_PULLUP);
   pinMode(eva, OUTPUT);
   pinMode(con, OUTPUT);
+  pinMode(ledCon, OUTPUT);
+  pinMode(ledEva, OUTPUT);
+}
+void updateRemoto(){
+ /* Usa MDNS para resolver o DNS */
+    if (!MDNS.begin(host)){ 
+      //http://esp32.local
+      Serial.println("Erro ao configurar mDNS. O ESP32 vai reiniciar em 1s...");
+      delay(1000);
+      ESP.restart();        
+    }
+    Serial.println("mDNS configurado e inicializado;");
+    /* Configfura as páginas de login e upload de firmware OTA */
+    server.on("/", HTTP_GET, []() {
+      server.sendHeader("Connection", "close");
+      server.send(200, "text/html", loginIndex);
+    });
+    server.on("/serverIndex", HTTP_GET, []() {
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/html", serverIndex);
+    });
+    /* Define tratamentos do update de firmware OTA */
+    server.on("/update", HTTP_POST, []() 
+    {
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+        ESP.restart();
+    }, []() {
+        HTTPUpload& upload = server.upload();
+         
+        if (upload.status == UPLOAD_FILE_START) 
+        {
+            /* Inicio do upload de firmware OTA */
+            Serial.printf("Update: %s\n", upload.filename.c_str());
+            if (!Update.begin(UPDATE_SIZE_UNKNOWN)) 
+                Update.printError(Serial);
+        } 
+        else if (upload.status == UPLOAD_FILE_WRITE) 
+        {
+            /* Escrevendo firmware enviado na flash do ESP32 */
+            if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) 
+                Update.printError(Serial);      
+        } 
+        else if (upload.status == UPLOAD_FILE_END) 
+        {
+            /* Final de upload */
+            if (Update.end(true))             
+                Serial.printf("Sucesso no update de firmware: %u\nReiniciando ESP32...\n", upload.totalSize);
+            else
+                Update.printError(Serial);
+        }   
+    });
+    server.begin();
 }
 void setup(){
   Serial.begin (115200);
   iniciaWifi();
   client.setServer (BROKER_MQTT, 1883);//define mqtt
   client.setCallback(callback); 
-  server.begin();
   ntp.begin ();
   ntp.forceUpdate();
   if (!ntp.forceUpdate ()){
@@ -414,6 +562,7 @@ void setup(){
   mac=DEVICE_ID;     //pega mac
   barramento.begin();
   barramento.getAddress(sensor, 0);  // Start up the library
+  updateRemoto();
 }
 void loop(){
   datahora();

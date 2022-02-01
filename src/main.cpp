@@ -12,14 +12,10 @@
 #include <WiFiClient.h>
 #include <OneWire.h>  
 #include <DallasTemperature.h>
+#include "C:\Users\Estudio\Desktop\dados.cpp" //senhas de acessos
 
 #define EEPROM_SIZE 1024
-#define WIFI_NOME "Metropole" //rede wifi específica
-#define WIFI_SENHA "908070Radio"
-#define BROKER_MQTT "10.71.0.2"
 #define DEVICE_TYPE "AR-redacao-entrada"
-#define TOKEN "ib+r)WKRvHCGjmjGQ0"
-#define ORG "n5hyok"
 #define PUBLISH_INTERVAL 2000//intervalo de 5 min para publicar temperatura
 OneWire pino(32);
 
@@ -259,7 +255,7 @@ void conectaMQTT(){
 }
 void reconectaMQTT(){
   //reconecta MQTT caso desconecte
-  while(!client.connected()){
+  if(!client.connected()){
     conectaMQTT();
   }
   client.loop();
@@ -354,8 +350,8 @@ void payloadMQTT(){
   doc["hora"]=tt;
   doc["temperatura"]=tempAtual;
   doc["movimento"]=movimento; 
-  doc["evaporadora"]=!(digitalRead(eva));
-  doc["condensadora"]=!(digitalRead(con));
+  doc["evaporadora"]=(digitalRead(eva));
+  doc["condensadora"]=(digitalRead(con));
   char buffer1[256];
   serializeJson(doc, buffer1);
   client.publish(topic1, buffer1);
@@ -436,13 +432,13 @@ void perguntaMQTT(){
     }
     vTaskDelay(pdMS_TO_TICKS(1000));
 }
-void verificaDia(void *pvParameters){
+void verificaDia(void *pvParameters){ 
   while(1){ 
     int Hora = data.tm_hour;
     //int data_semana = data.tm_wday; //devolve em numero
     if(data_semana != 0 && data_semana != 6){
       //se n for sabado nem domingo 
-      if(Hora>=Hliga){
+      if(Hora>=Hliga && Hora<=Hdes){
         //esta no horario de ligar
         if(ultimoGatilho>millis()){
           //tem movimento

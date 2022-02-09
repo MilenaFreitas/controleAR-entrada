@@ -356,6 +356,12 @@ void payloadMQTT(){
   serializeJson(doc, buffer1);
   client.publish(topic1, buffer1);
 }
+void desligaAr(){
+  digitalWrite(con, 0);
+  digitalWrite(ledCon, digitalRead(con));
+  digitalWrite(eva, 0);
+  digitalWrite(ledEva, digitalRead(eva));
+}
 void arLiga(){
   String hora;
   hora= data.tm_hour;
@@ -391,14 +397,11 @@ void arLiga(){
 void perguntaMQTT(){  
     int Hora = data.tm_hour;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==6 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
-      //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
+    if(data_semana==6||data_semana==0||Hora<Hliga||Hora>Hdes){
+      //se for sabado ou domingo ou antes de 7h ou depois de 21h 
       //se tiver movimento
       vez=vez+1;
-      digitalWrite(con, 0);
-      digitalWrite(ledCon, digitalRead(con));
-      digitalWrite(eva, 0);
-      digitalWrite(ledEva, digitalRead(eva));
+      desligaAr();
       if(vez==1){
         Serial.println("entrou para a parte que pergunta ao MQTT");
         StaticJsonDocument<256> doc;
@@ -422,10 +425,7 @@ void perguntaMQTT(){
           }
         } 
       } else if(comando=="0"){
-        digitalWrite(con, 0);
-        digitalWrite(ledCon, digitalRead(con));
-        digitalWrite(eva, 0);
-        digitalWrite(ledEva, digitalRead(eva));
+        desligaAr();
         Serial.println("nao liga o ar pelo MQTT");
         Serial.println(comando);
       }
@@ -447,25 +447,16 @@ void verificaDia(void *pvParameters){
           Serial.println("estou dentro do horario");
         } else if(ultimoGatilho<millis()){
           //não tem movimento
-          digitalWrite(con, 0);
-          digitalWrite(ledCon, digitalRead(con));
-          digitalWrite(eva, 0);
-          digitalWrite(ledEva, digitalRead(eva));
+          desligaAr();
         }
       } else {
         //se fora do horario
-        digitalWrite(con, 0);
-        digitalWrite(ledCon, digitalRead(con));
-        digitalWrite(eva, 0);
-        digitalWrite(ledEva, digitalRead(eva));
+        desligaAr();
         perguntaMQTT();
       }
     } else{
       //se fora do dia
-      digitalWrite(con, 0);
-      digitalWrite(ledCon, digitalRead(con));
-      digitalWrite(eva, 0);
-      digitalWrite(ledEva, digitalRead(eva));
+      desligaAr();
       perguntaMQTT();
     }
     vTaskDelay(pdMS_TO_TICKS(30000));

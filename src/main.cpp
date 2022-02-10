@@ -397,7 +397,7 @@ void arLiga(){
 void perguntaMQTT(){  
     int Hora = data.tm_hour;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==6||data_semana==0||Hora<Hliga||Hora>Hdes){
+    if(data_semana==6||data_semana==0||Hora<Hliga||Hora>=Hdes){
       //se for sabado ou domingo ou antes de 7h ou depois de 21h 
       //se tiver movimento
       vez=vez+1;
@@ -419,7 +419,7 @@ void perguntaMQTT(){
           Serial.println("fica rodando no whilee");
           payloadMQTT();
           delay(5000);
-          if((data_semana!=6 && data_semana!=0) || (Hora>=Hliga && Hora<=Hdes)){
+          if((data_semana!=6 && data_semana!=0)||(Hora>=Hliga&&Hora<Hdes)){
             vez=0;
             break;
           }
@@ -438,7 +438,8 @@ void verificaDia(void *pvParameters){
     //int data_semana = data.tm_wday; //devolve em numero
     if(data_semana != 0 && data_semana != 6){
       //se n for sabado nem domingo 
-      if(Hora>=Hliga && Hora<=Hdes){
+      if(Hora>=Hliga && Hora<Hdes){
+        //desliga 21h pq n tem o igual
         //esta no horario de ligar
         if(ultimoGatilho>millis()){
           //tem movimento

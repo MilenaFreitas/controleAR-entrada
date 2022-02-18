@@ -333,8 +333,7 @@ void sensorTemp(){
       }
     }
     previousMilliss=currentMilliss;
-  }
-  
+  } 
 }
 void IRAM_ATTR mudaStatusPir(){
   ultimoGatilho = millis()+tempo;
@@ -357,10 +356,10 @@ void payloadMQTT(){
   client.publish(topic1, buffer1);
 }
 void desligaAr(){
-  digitalWrite(con, 0);
-  digitalWrite(ledCon, digitalRead(con));
-  digitalWrite(eva, 0);
-  digitalWrite(ledEva, digitalRead(eva));
+  digitalWrite(con, 1);
+  digitalWrite(ledCon, !digitalRead(con));
+  digitalWrite(eva, 1);
+  digitalWrite(ledEva, !digitalRead(eva));
 }
 void arLiga(){
   String hora;
@@ -550,24 +549,7 @@ void setup(){
 }
 void loop(){
   datahora();
-  server.handleClient();
-  if(WL_DISCONNECTED || WL_CONNECTION_LOST){
-    rede=0;
-  }else if(rede==0){
-    Serial.println(rede);
-    tentaReconexao();
-  }
-  reconectaMQTT();
   int week = data.tm_wday; //devolve em numero
-  unsigned long currentMillis1 = millis();
-  if ((currentMillis1-previousMillis1)>= intervalo){
-    Serial.println("entro no tempo do millis do payload");
-    payloadMQTT();
-    previousMillis1=currentMillis1;
-  }
-  if(ultimoGatilho<millis()){
-    movimento=0;
-  } 
   if(week != data_semana){
     StaticJsonDocument<256> doc5;
     doc5["local"] = "AR-redacao-entrada";
@@ -579,7 +561,24 @@ void loop(){
     Serial.println("mandou mqtt");
     delay(3000);
   }
+  server.handleClient();
+  if(WL_DISCONNECTED || WL_CONNECTION_LOST){
+    rede=0;
+  }else if(rede==0){
+    Serial.println(rede);
+    tentaReconexao();
+  }
+  reconectaMQTT();
+  unsigned long currentMillis1 = millis();
+  if ((currentMillis1-previousMillis1)>= intervalo){
+    Serial.println("entro no tempo do millis do payload");
+    payloadMQTT();
+    previousMillis1=currentMillis1;
+  }
   sensorTemp();
+  if(ultimoGatilho<millis()){
+    movimento=0;
+  } 
   delay(500);
 }
 //mac 1 biitF4A6F9A3C9C8 redação reuniao
